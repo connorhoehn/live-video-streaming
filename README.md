@@ -52,7 +52,7 @@ A distributed SFU (Selective Forwarding Unit) system built with MediaSoup, featu
                    ▼                   ▼
               ┌────────────────────────────┐
               │      External Redis        │
-              │      (default: 6377)      │
+              │      (default: 6377)       │
               └────────────────────────────┘
 ```
 
