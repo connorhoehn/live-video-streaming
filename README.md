@@ -31,7 +31,7 @@
    node scripts/init-pipe-links.js
    ```
 
-A distributed SFU (Selective Forwarding Unit) system built with MediaSoup, featuring three SFU nodes and a simple web-based test interface.
+A distributed SFU (Selective Forwarding Unit) system built with MediaSoup, featuring three SFU nodes, a simple web-based test interface, and a shared external Redis instance for coordination.
 
 ## 🏗️ Architecture
 
@@ -46,9 +46,17 @@ A distributed SFU (Selective Forwarding Unit) system built with MediaSoup, featu
 ┌───────────────┐   ┌───────────────┐   ┌───────────────┐
 │  SFU Node 1   │   │  SFU Node 2   │   │  SFU Node 3   │
 │  (Port 3001)  │   │  (Port 3002)  │   │  (Port 3003)  │
-└───────────────┘   └───────────────┘   └───────────────┘
+└───────┬───────┘   └───────┬───────┘   └───────┬───────┘
+        │                   │                   │
+        └──────────┬────────┴──────────┬────────┘
+                   ▼                   ▼
+              ┌────────────────────────────┐
+              │      External Redis        │
+              │      (default: 6377)      │
+              └────────────────────────────┘
 ```
 
+- All SFU nodes and the Coordinator use a shared external Redis instance for mesh state and coordination.
 - The Coordinator manages the cluster, mesh, and web interface (http://localhost:2020/index.html).
 - Each SFU node runs on its own port (3001, 3002, 3003).
 
