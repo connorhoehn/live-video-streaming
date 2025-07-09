@@ -1,0 +1,87 @@
+{
+  "signaling": {
+    "port": 3000,
+    "host": "0.0.0.0"
+  },
+  "sfu": {
+    "nodes": [
+      {
+        "id": "sfu1",
+        "port": 3001,
+        "rtcPortRange": {
+          "min": 10000,
+          "max": 10999
+        }
+      },
+      {
+        "id": "sfu2", 
+        "port": 3002,
+        "rtcPortRange": {
+          "min": 11000,
+          "max": 11999
+        }
+      },
+      {
+        "id": "sfu3",
+        "port": 3003,
+        "rtcPortRange": {
+          "min": 12000,
+          "max": 12999
+        }
+      }
+    ],
+    "mediasoup": {
+      "worker": {
+        "logLevel": "warn",
+        "logTags": ["info", "ice", "dtls", "rtp", "srtp", "rtcp"]
+      },
+      "router": {
+        "mediaCodecs": [
+          {
+            "kind": "audio",
+            "mimeType": "audio/opus",
+            "clockRate": 48000,
+            "channels": 2
+          },
+          {
+            "kind": "video",
+            "mimeType": "video/VP8",
+            "clockRate": 90000,
+            "parameters": {
+              "x-google-start-bitrate": 1000
+            }
+          },
+          {
+            "kind": "video",
+            "mimeType": "video/h264",
+            "clockRate": 90000,
+            "parameters": {
+              "packetization-mode": 1,
+              "profile-level-id": "4d0032",
+              "level-asymmetry-allowed": 1,
+              "x-google-start-bitrate": 1000
+            }
+          }
+        ]
+      },
+      "webRtcTransport": {
+        "listenIps": [
+          {
+            "ip": "0.0.0.0",
+            "announcedIp": "127.0.0.1"
+          }
+        ],
+        "maxIncomingBitrate": 1500000,
+        "initialAvailableOutgoingBitrate": 1000000
+      }
+    }
+  },
+  "webClient": {
+    "port": 2020
+  },
+  "monitoring": {
+    "heartbeatInterval": 10000,
+    "nodeTimeout": 60000,
+    "maxLogEntries": 50
+  }
+}

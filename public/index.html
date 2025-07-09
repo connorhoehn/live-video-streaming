@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal WebRTC Streaming</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin: 0;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+        }
+
+        input,
+        button,
+        select {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #5a6fd8;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .video-sections {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .streamer-section {
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .streamer-section h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 1.2rem;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 8px;
+        }
+
+        .video-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+            min-height: 200px;
+        }
+
+        .video-container {
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            aspect-ratio: 16/9;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .video-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .video-container.local .video-label {
+            background: rgba(46, 125, 50, 0.8);
+        }
+
+        .video-container.remote .video-label {
+            background: rgba(25, 118, 210, 0.8);
+        }
+
+        .empty-video-message {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-style: italic;
+            min-height: 300px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 2px dashed #ddd;
+        }
+
+        .status {
+            text-align: center;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .chat-section {
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+
+        .chat-messages {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: white;
+        }
+
+        .chat-input {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input input {
+            flex: 1;
+        }
+
+        .message {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 3px;
+        }
+
+        .message.streamer {
+            background: #e3f2fd;
+        }
+
+        .message.viewer {
+            background: #f3e5f5;
+        }
+
+        .room-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .info-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .info-card h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+
+        .info-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stream-selection {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ddd;
+        }
+
+        .stream-selection h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 1.5rem;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .stream-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stream-card {
+            background: #f0f8ff;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+
+        .stream-card h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 1.2rem;
+        }
+
+        .stream-card .value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        /* Multi-Node Stream Selection Styles */
+        .stream-selection {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .stream-selection h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 1.3rem;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 8px;
+        }
+
+        .stream-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stream-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .stream-item h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 1.1rem;
+        }
+
+        .stream-item .stream-info {
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .node-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .node-button {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.3s;
+        }
+
+        .node-button:hover {
+            background: #f0f8ff;
+        }
+
+        .node-button.original {
+            background: #e8f5e8;
+            border-color: #28a745;
+            color: #28a745;
+        }
+
+        .node-button.piped {
+            background: #fff3cd;
+            border-color: #ffc107;
+            color: #856404;
+        }
+
+        .node-button.consuming {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
+        }
+
+        .node-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .node-card {
+            background: white;
+            border-radius: 6px;
+            padding: 10px;
+            border: 1px solid #e0e0e0;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        .node-card.online {
+            border-color: #28a745;
+            background: #f8fff8;
+        }
+
+        .node-card.offline {
+            border-color: #dc3545;
+            background: #fff8f8;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎥 Minimal WebRTC Streaming</h1>
+            <div id="status" class="status disconnected">Disconnected</div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <input type="text" id="roomId" placeholder="Room ID" value="demo-room">
+                <select id="userType">
+                    <option value="viewer">Viewer</option>
+                    <option value="streamer">Streamer</option>
+                </select>
+                <button id="joinRoom">Join Room</button>
+            </div>
+            <div class="control-group">
+                <input type="text" id="username" placeholder="Your name" value="User1">
+                <button id="startStream" disabled style="display: none;">Start Stream</button>
+                <button id="stopStream" disabled style="display: none;">Stop Stream</button>
+                <button id="debugButton" onclick="window.debugVideoState()" style="background: #ff6b35;">🔍 Debug Video</button>
+                <button onclick="window.checkTransports()" style="background: #28a745;">🚛 Check Transports</button>
+                <button onclick="window.forceShowPlayButtons()" style="background: #dc3545;">🎬 Show Play Buttons</button>
+            </div>
+            <div class="control-group">
+                <div style="background: #f0f8ff; padding: 10px; border-radius: 5px; font-size: 14px;">
+                    <strong>📱 Application Interface:</strong><br>
+                    🏠 Main Dashboard: <a href="http://localhost:2020/index.html" target="_blank">http://localhost:2020/index.html</a><br>
+                    📊 Stream Visualization: <a href="http://localhost:2020/stream-visualization.html" target="_blank">http://localhost:2020/stream-visualization.html</a><br><br>
+                    <strong>Test Instructions:</strong><br>
+                    🔥 <strong>Firefox:</strong> Select "Streamer" → Join Room → Start Stream<br>
+                    👁️ <strong>Chrome:</strong> Select "Viewer" → Join Room (watch stream)<br>
+                    🌐 <strong>Multi-Node:</strong> Select "Viewer" → Use node selection to consume from different SFU nodes
+                </div>
+            </div>
+        </div>
+
+        <!-- Node Selection Section -->
+        <div class="node-selection" style="margin-bottom: 30px;">
+            <h3 style="text-align: center; margin-bottom: 20px; color: #667eea;">🌐 SFU Node Selection</h3>
+            <div class="controls" style="margin-bottom: 15px;">
+                <div class="control-group">
+                    <label for="sfuNodeSelect">Connect to SFU Node:</label>
+                    <select id="sfuNodeSelect">
+                        <option value="sfu1">SFU1 (Port 3001)</option>
+                        <option value="sfu2">SFU2 (Port 3002)</option>
+                        <option value="sfu3">SFU3 (Port 3003)</option>
+                    </select>
+                    <button id="connectToNodeBtn">Connect to Node</button>
+                </div>
+                <div class="control-group">
+                    <button id="discoverStreamsBtn" style="background: #28a745;">🔍 Discover Streams</button>
+                    <button id="showStreamAvailabilityBtn" style="background: #ffc107; color: #000;">🌐 Show Stream Availability</button>
+                </div>
+            </div>
+            <div id="currentNodeInfo" class="info-card" style="background: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px;">
+                <h4 style="margin: 0 0 10px 0; color: #1976d2;">📡 Current Connection</h4>
+                <div id="connectedNode" style="font-weight: bold; color: #1976d2;">Not Connected</div>
+            </div>
+        </div>
+
+        <!-- Stream Discovery Section -->
+        <div class="stream-discovery" style="margin-bottom: 30px;">
+            <h3 style="text-align: center; margin-bottom: 20px; color: #667eea;">📺 Available Streams</h3>
+            <div id="streamAvailability" class="stream-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+                <div class="stream-placeholder" style="padding: 20px; border: 2px dashed #ddd; border-radius: 8px; text-align: center; color: #999;">
+                    Click "Discover Streams" to see available streams across all nodes
+                </div>
+            </div>
+        </div>
+
+        <div class="room-info">
+            <div class="info-card">
+                <h4>Room ID</h4>
+                <div class="value" id="currentRoom">-</div>
+            </div>
+            <div class="info-card">
+                <h4>Streamers</h4>
+                <div class="value" id="streamerCount">0</div>
+            </div>
+            <div class="info-card">
+                <h4>Viewers</h4>
+                <div class="value" id="viewerCount">0</div>
+            </div>
+            <div class="info-card">
+                <h4>Your Role</h4>
+                <div class="value" id="yourRole">-</div>
+            </div>
+            <div class="info-card">
+                <h4>Connected Node</h4>
+                <div class="value" id="connectedNode">-</div>
+            </div>
+        </div>
+
+        <div class="video-sections">
+            <div class="streamer-section">
+                <h3>📺 Local Stream</h3>
+                <div class="video-section">
+                    <video id="localVideo" autoplay muted playsinline
+                        style="width: 100%; max-width: 400px; border-radius: 10px;"></video>
+                </div>
+            </div>
+            <div class="viewers-section">
+                <h3>👥 Remote Streams</h3>
+                <div id="remoteVideos" class="video-section">
+                    <!-- Remote video streams will appear here -->
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-section">
+            <h3>💬 Chat</h3>
+            <div id="chatMessages" class="chat-messages"></div>
+            <div class="chat-input">
+                <input type="text" id="chatInput" placeholder="Type a message..." disabled>
+                <button id="sendMessage" disabled>Send</button>
+            </div>
+        </div>
+
+        <!-- Multi-Node Stream Selection -->
+        <div id="streamSelection" class="stream-selection" style="display: none;">
+            <h3>🌐 Multi-Node Stream Selection</h3>
+            <div class="stream-grid" id="streamGrid">
+                <div class="loading">🔍 Discovering streams across nodes...</div>
+            </div>
+            <div class="node-status">
+                <h4>📡 Node Status</h4>
+                <div id="nodeStatus" class="node-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="js/mediasoup-client-bundle.js"></script>
+    <script src="js/shared.js"></script>
+    <script src="js/mediasoup-client.js"></script>
+    <!-- <script src="js/multi-node-stream-viewer.js"></script> -->
+    <script>
+        // Multi-Node Stream Selection functionality
+        class MultiNodeStreamViewer {
+            constructor() {
+                this.client = null;
+                this.streamGrid = document.getElementById('streamGrid');
+                this.nodeStatus = document.getElementById('nodeStatus');
+                this.streamSelection = document.getElementById('streamSelection');
+                this.activeStreams = new Map(); // streamId -> consuming info
+                this.refreshInterval = null;
+                this.userType = null;
+            }
+
+            async init() {
+                // Initialize MediaSoup client
+                this.client = new MediaSoupClient();
+                
+                // Get user type from select element
+                const userTypeSelect = document.getElementById('userType');
+                this.userType = userTypeSelect.value;
+                
+                // Show stream selection for viewers
+                if (this.userType === 'viewer') {
+                    this.streamSelection.style.display = 'block';
+                    await this.refreshStreams();
+                    this.startPeriodicRefresh();
+                }
+                
+                // Listen for user type changes
+                userTypeSelect.addEventListener('change', (e) => {
+                    this.userType = e.target.value;
+                    if (this.userType === 'viewer') {
+                        this.streamSelection.style.display = 'block';
+                        this.refreshStreams();
+                        this.startPeriodicRefresh();
+                    } else {
+                        this.streamSelection.style.display = 'none';
+                        this.stopPeriodicRefresh();
+                    }
+                });
+            }
+
+            async refreshStreams() {
+                try {
+                    // Get stream availability across all nodes
+                    const streamAvailability = await this.client.getStreamAvailability();
+                    
+                    // Update stream grid
+                    this.updateStreamGrid(streamAvailability);
+                    
+                    // Update node status
+                    this.updateNodeStatus();
+                    
+                } catch (error) {
+                    console.error('Error refreshing streams:', error);
+                    this.streamGrid.innerHTML = '<div class="loading">❌ Error loading streams</div>';
+                }
+            }
+
+            updateStreamGrid(streamAvailability) {
+                if (streamAvailability.length === 0) {
+                    this.streamGrid.innerHTML = '<div class="loading">📺 No streams available</div>';
+                    return;
+                }
+
+                this.streamGrid.innerHTML = '';
+                
+                streamAvailability.forEach(stream => {
+                    const streamItem = document.createElement('div');
+                    streamItem.className = 'stream-item';
+                    
+                    streamItem.innerHTML = `
+                        <h4>📺 ${stream.streamName}</h4>
+                        <div class="stream-info">
+                            <div>📍 Original Node: <strong>${stream.originalNode}</strong></div>
+                            <div>🔗 Available on ${stream.totalNodes} node(s)</div>
+                            <div>🚇 Piped to: ${stream.pipedNodes.length > 0 ? stream.pipedNodes.join(', ') : 'None'}</div>
+                        </div>
+                        <div class="node-buttons">
+                            ${stream.availableNodes.map(node => `
+                                <button class="node-button ${node.isOriginal ? 'original' : 'piped'} ${this.activeStreams.has(stream.streamId + '_' + node.nodeId) ? 'consuming' : ''}" 
+                                        data-stream-id="${stream.streamId}" 
+                                        data-node-id="${node.nodeId}"
+                                        onclick="multiNodeViewer.consumeFromNode('${stream.streamId}', '${node.nodeId}')">
+                                    ${node.nodeId} ${node.isOriginal ? '🎬' : '🚇'}
+                                </button>
+                            `).join('')}
+                        </div>
+                    `;
+                    
+                    this.streamGrid.appendChild(streamItem);
+                });
+            }
+
+            async updateNodeStatus() {
+                const nodes = ['sfu1', 'sfu2', 'sfu3'];
+                const ports = [3001, 3002, 3003];
+                
+                this.nodeStatus.innerHTML = '';
+                
+                for (let i = 0; i < nodes.length; i++) {
+                    const nodeId = nodes[i];
+                    const port = ports[i];
+                    
+                    const nodeCard = document.createElement('div');
+                    nodeCard.className = 'node-card';
+                    
+                    try {
+                        const response = await fetch(`http://localhost:${port}/api/health`, {
+                            timeout: 1000
+                        });
+                        
+                        if (response.ok) {
+                            nodeCard.classList.add('online');
+                            nodeCard.innerHTML = `
+                                <strong>${nodeId}</strong><br>
+                                <span style="color: #28a745">🟢 Online</span><br>
+                                <small>:${port}</small>
+                            `;
+                        } else {
+                            nodeCard.classList.add('offline');
+                            nodeCard.innerHTML = `
+                                <strong>${nodeId}</strong><br>
+                                <span style="color: #dc3545">🔴 Error</span><br>
+                                <small>:${port}</small>
+                            `;
+                        }
+                    } catch (error) {
+                        nodeCard.classList.add('offline');
+                        nodeCard.innerHTML = `
+                            <strong>${nodeId}</strong><br>
+                            <span style="color: #dc3545">🔴 Offline</span><br>
+                            <small>:${port}</small>
+                        `;
+                    }
+                    
+                    this.nodeStatus.appendChild(nodeCard);
+                }
+            }
+
+            async consumeFromNode(streamId, nodeId) {
+                try {
+                    Logger.info(`🎯 Starting consumption of stream ${streamId} from node ${nodeId}`);
+                    
+                    // Initialize client connection if needed
+                    if (!this.client.isConnected) {
+                        await this.client.connect();
+                    }
+                    
+                    // Set up RTP capabilities for the target node
+                    this.client.selectedSfuNode = {
+                        nodeId,
+                        host: 'localhost',
+                        port: this.client.getNodePort(nodeId),
+                        connections: 0
+                    };
+                    
+                    if (!this.client.rtpCapabilities) {
+                        await this.client.getRtpCapabilities();
+                        await this.client.createDevice();
+                    }
+                    
+                    // Consume the stream from the specific node
+                    const result = await this.client.consumeFromNode(streamId, nodeId);
+                    
+                    // Track the active stream
+                    const streamKey = `${streamId}_${nodeId}`;
+                    this.activeStreams.set(streamKey, {
+                        streamId,
+                        nodeId,
+                        consumers: result.consumers,
+                        consumedAt: Date.now()
+                    });
+                    
+                    // Create video elements for consumed streams
+                    this.displayConsumedStream(result, nodeId);
+                    
+                    // Update button states
+                    this.updateButtonStates();
+                    
+                    Logger.success(`✅ Successfully consuming stream ${streamId} from node ${nodeId}`);
+                    
+                } catch (error) {
+                    Logger.error(`❌ Failed to consume stream ${streamId} from node ${nodeId}:`, error);
+                    alert(`Failed to consume stream from ${nodeId}: ${error.message}`);
+                }
+            }
+
+            displayConsumedStream(streamResult, nodeId) {
+                // Create a video element for the consumed stream
+                const videoContainer = document.createElement('div');
+                videoContainer.className = 'video-container remote';
+                videoContainer.id = `stream-${streamResult.streamId}-${nodeId}`;
+                
+                const video = document.createElement('video');
+                video.autoplay = true;
+                video.playsinline = true;
+                video.controls = true;
+                video.style.width = '100%';
+                video.style.maxWidth = '400px';
+                video.style.height = 'auto';
+                
+                const label = document.createElement('div');
+                label.className = 'video-label';
+                label.textContent = `📺 ${streamResult.streamName || streamResult.streamId} from ${nodeId}`;
+                label.style.textAlign = 'center';
+                label.style.padding = '10px';
+                label.style.background = '#f8f9fa';
+                label.style.borderRadius = '4px';
+                label.style.marginBottom = '10px';
+                
+                videoContainer.appendChild(label);
+                videoContainer.appendChild(video);
+                
+                // Add to the remote videos section
+                const remoteVideos = document.getElementById('remoteVideos');
+                if (remoteVideos) {
+                    remoteVideos.appendChild(videoContainer);
+                }
+                
+                // Create MediaStream from consumers
+                const tracks = [];
+                streamResult.consumers.forEach(consumer => {
+                    if (consumer.track) {
+                        tracks.push(consumer.track);
+                    }
+                });
+                
+                if (tracks.length > 0) {
+                    const stream = new MediaStream(tracks);
+                    video.srcObject = stream;
+                    
+                    video.onloadedmetadata = () => {
+                        Logger.info(`📺 Video loaded for stream ${streamResult.streamId} from ${nodeId}`);
+                    };
+                    
+                    video.onerror = (e) => {
+                        Logger.error(`❌ Video error for stream ${streamResult.streamId} from ${nodeId}:`, e);
+                    };
+                }
+            }
+
+            updateButtonStates() {
+                // Update button appearances based on active streams
+                const buttons = document.querySelectorAll('.node-button');
+                buttons.forEach(button => {
+                    const streamId = button.getAttribute('data-stream-id');
+                    const nodeId = button.getAttribute('data-node-id');
+                    const streamKey = `${streamId}_${nodeId}`;
+                    
+                    if (this.activeStreams.has(streamKey)) {
+                        button.classList.add('consuming');
+                        button.textContent = button.textContent.replace('🎬', '🔴').replace('🚇', '🔴');
+                    } else {
+                        button.classList.remove('consuming');
+                    }
+                });
+            }
+
+            startPeriodicRefresh() {
+                if (this.refreshInterval) {
+                    clearInterval(this.refreshInterval);
+                }
+                
+                this.refreshInterval = setInterval(() => {
+                    this.refreshStreams();
+                }, 5000); // Refresh every 5 seconds
+            }
+
+            stopPeriodicRefresh() {
+                if (this.refreshInterval) {
+                    clearInterval(this.refreshInterval);
+                    this.refreshInterval = null;
+                }
+            }
+        }
+
+        // Node Selection Functionality
+        let currentMediaSoupClient = null;
+        let selectedNodeId = 'sfu1';
+
+        function updateConnectedNodeInfo(nodeId, port) {
+            const connectedNodeEl = document.getElementById('connectedNode');
+            if (connectedNodeEl) {
+                connectedNodeEl.textContent = `${nodeId.toUpperCase()} (Port: ${port})`;
+            }
+        }
+
+        async function connectToNode() {
+            const nodeSelect = document.getElementById('sfuNodeSelect');
+            const selectedNode = nodeSelect.value;
+            selectedNodeId = selectedNode;
+
+            try {
+                // Disconnect existing client if any
+                if (currentMediaSoupClient) {
+                    currentMediaSoupClient.socket?.disconnect();
+                }
+
+                // Create new client and connect to selected node
+                currentMediaSoupClient = new MediaSoupClient();
+                await currentMediaSoupClient.connect(selectedNode);
+                
+                const nodePort = currentMediaSoupClient.getNodePort(selectedNode);
+                updateConnectedNodeInfo(selectedNode, nodePort);
+                
+                Logger.success(`✅ Connected to ${selectedNode.toUpperCase()}`);
+                Notifications.success(`Connected to ${selectedNode.toUpperCase()}`);
+                
+            } catch (error) {
+                Logger.error(`❌ Failed to connect to ${selectedNode}:`, error);
+                Notifications.error(`Failed to connect to ${selectedNode}`);
+            }
+        }
+
+        async function discoverStreams() {
+            try {
+                if (!currentMediaSoupClient) {
+                    throw new Error('Not connected to any node. Please connect first.');
+                }
+
+                Logger.info('🔍 Discovering streams across all nodes...');
+                const streams = await currentMediaSoupClient.getAvailableStreams();
+                displayDiscoveredStreams(streams);
+                
+            } catch (error) {
+                Logger.error('❌ Error discovering streams:', error);
+                Notifications.error(`Error discovering streams: ${error.message}`);
+            }
+        }
+
+        async function showStreamAvailability() {
+            try {
+                if (!currentMediaSoupClient) {
+                    throw new Error('Not connected to any node. Please connect first.');
+                }
+
+                Logger.info('🌐 Checking stream availability across mesh...');
+                const availability = await currentMediaSoupClient.getStreamAvailability();
+                displayStreamAvailability(availability);
+                
+            } catch (error) {
+                Logger.error('❌ Error checking stream availability:', error);
+                Notifications.error(`Error checking availability: ${error.message}`);
+            }
+        }
+
+        function displayDiscoveredStreams(streams) {
+            const container = document.getElementById('streamAvailability');
+            
+            if (streams.length === 0) {
+                container.innerHTML = `
+                    <div class="stream-placeholder" style="padding: 20px; border: 2px dashed #ddd; border-radius: 8px; text-align: center; color: #999;">
+                        No streams found across any nodes
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = streams.map(stream => `
+                <div class="stream-item">
+                    <h4>📺 ${stream.name || stream.id}</h4>
+                    <div class="stream-info">
+                        <strong>Node:</strong> ${stream.nodeId} (${stream.isOriginal ? 'Original' : 'Piped'})<br>
+                        <strong>Stream ID:</strong> ${stream.id}<br>
+                        <strong>Producers:</strong> ${stream.producers?.length || 0}
+                    </div>
+                    <div class="node-buttons">
+                        <button class="node-button ${stream.isOriginal ? 'original' : ''}" 
+                                onclick="consumeStreamFromNode('${stream.id}', '${stream.nodeId}')">
+                            Watch from ${stream.nodeId.toUpperCase()}
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function displayStreamAvailability(availability) {
+            const container = document.getElementById('streamAvailability');
+            
+            if (availability.length === 0) {
+                container.innerHTML = `
+                    <div class="stream-placeholder" style="padding: 20px; border: 2px dashed #ddd; border-radius: 8px; text-align: center; color: #999;">
+                        No streams available in the mesh
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = availability.map(stream => `
+                <div class="stream-item">
+                    <h4>📺 ${stream.streamName}</h4>
+                    <div class="stream-info">
+                        <strong>Stream ID:</strong> ${stream.streamId}<br>
+                        <strong>Available on:</strong> ${stream.totalNodes} nodes<br>
+                        <strong>Original:</strong> ${stream.originalNode}<br>
+                        <strong>Piped to:</strong> ${stream.pipedNodes.join(', ') || 'None'}
+                    </div>
+                    <div class="node-buttons">
+                        ${stream.availableNodes.map(node => `
+                            <button class="node-button ${node.isOriginal ? 'original' : ''}" 
+                                    onclick="consumeStreamFromNode('${stream.streamId}', '${node.nodeId}')">
+                                ${node.nodeId.toUpperCase()} ${node.isOriginal ? '(Original)' : '(Piped)'}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function consumeStreamFromNode(streamId, nodeId) {
+            try {
+                if (!currentMediaSoupClient) {
+                    throw new Error('Not connected to any node. Please connect first.');
+                }
+
+                Logger.info(`🎯 Consuming stream ${streamId} from node ${nodeId}`);
+                Notifications.info(`Connecting to stream from ${nodeId.toUpperCase()}...`);
+                
+                const result = await currentMediaSoupClient.consumeFromNode(streamId, nodeId);
+                
+                // Create video element to display the stream
+                displayConsumedStream(result);
+                
+                Logger.success(`✅ Successfully consuming stream from ${nodeId.toUpperCase()}`);
+                Notifications.success(`Now viewing stream from ${nodeId.toUpperCase()}`);
+                
+            } catch (error) {
+                Logger.error(`❌ Error consuming stream from ${nodeId}:`, error);
+                Notifications.error(`Failed to consume from ${nodeId}: ${error.message}`);
+            }
+        }
+
+        function displayConsumedStream(streamResult) {
+            // Find or create video container
+            let videoContainer = document.getElementById('consumedVideos');
+            if (!videoContainer) {
+                videoContainer = document.createElement('div');
+                videoContainer.id = 'consumedVideos';
+                videoContainer.innerHTML = '<h3>🎬 Consumed Streams</h3>';
+                videoContainer.style.cssText = 'margin-top: 30px; padding: 20px; background: rgba(255,255,255,0.9); border-radius: 12px;';
+                document.querySelector('.container').appendChild(videoContainer);
+            }
+
+            // Create video element
+            const videoDiv = document.createElement('div');
+            videoDiv.style.cssText = 'margin: 15px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background: white;';
+            
+            const title = document.createElement('h4');
+            title.textContent = `📺 ${streamResult.streamName} from ${streamResult.consumedFromNode.toUpperCase()}`;
+            title.style.cssText = 'margin: 0 0 10px 0; color: #333;';
+            
+            videoDiv.appendChild(title);
+
+            // Add video elements for each consumer
+            streamResult.consumers.forEach(consumer => {
+                const video = document.createElement('video');
+                video.autoplay = true;
+                video.controls = true;
+                video.muted = consumer.kind === 'video'; // Only mute video tracks
+                video.style.cssText = 'width: 100%; max-width: 640px; margin: 5px 0; border-radius: 5px;';
+                
+                if (consumer.track) {
+                    const stream = new MediaStream([consumer.track]);
+                    video.srcObject = stream;
+                    
+                    const label = document.createElement('div');
+                    label.textContent = `${consumer.kind} track from ${streamResult.consumedFromNode}`;
+                    label.style.cssText = 'font-size: 0.9rem; color: #666; margin-bottom: 5px;';
+                    videoDiv.appendChild(label);
+                }
+                
+                videoDiv.appendChild(video);
+            });
+
+            videoContainer.appendChild(videoDiv);
+        }
+
+        // Initialize multi-node stream viewer
+        const multiNodeViewer = new MultiNodeStreamViewer();
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            multiNodeViewer.init();
+            
+            // Add event listeners for node selection
+            document.getElementById('connectToNodeBtn').addEventListener('click', connectToNode);
+            document.getElementById('discoverStreamsBtn').addEventListener('click', discoverStreams);
+            document.getElementById('showStreamAvailabilityBtn').addEventListener('click', showStreamAvailability);
+            
+            // Auto-connect to SFU1 by default
+            connectToNode();
+        });
+    </script>
+</body>
+
+</html>

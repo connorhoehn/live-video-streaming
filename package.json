@@ -1,0 +1,43 @@
+{
+  "name": "mediasoup-streaming-cluster",
+  "version": "1.0.0",
+  "description": "Multi-node MediaSoup SFU cluster with signaling, monitoring, and streaming",
+  "main": "src/cluster-coordinator.js",
+  "scripts": {
+    "start": "node scripts/start-all.js",
+    "signaling": "node src/signaling-server.js",
+    "sfu1": "NODE_ID=sfu1 PORT=3001 node src/sfu-server.js",
+    "sfu2": "NODE_ID=sfu2 PORT=3002 node src/sfu-server.js",
+    "sfu3": "NODE_ID=sfu3 PORT=3003 node src/sfu-server.js",
+    "coordinator": "node src/cluster-coordinator.js",
+    "monitor": "node src/monitoring-server.js",
+    "dashboard": "open public/cluster-dashboard.html",
+    "test": "node test/cluster-test.js",
+    "stop": "pkill -f 'node.*cluster-coordinator|node.*sfu-server|node.*signaling-server'",
+    "dev": "concurrently \"npm run signaling\" \"npm run sfu1\" \"npm run sfu2\" \"npm run sfu3\""
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "mediasoup": "^3.12.16",
+    "mediasoup-client": "^3.7.6",
+    "node-fetch": "^3.3.2",
+    "redis": "^5.6.0",
+    "socket.io": "^4.7.2",
+    "socket.io-client": "^4.8.1",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "mediasoup",
+    "webrtc",
+    "sfu",
+    "cluster",
+    "streaming"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
